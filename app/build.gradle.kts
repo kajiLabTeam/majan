@@ -65,4 +65,5 @@ dependencies {
     debugImplementation(libs.ui.tooling)
     debugImplementation(libs.ui.test.manifest)
     implementation (libs.material.icons.extended)
+    implementation ("androidx.compose.foundation:foundation:1.7.5")
 }
