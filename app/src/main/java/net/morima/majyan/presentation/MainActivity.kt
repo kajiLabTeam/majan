@@ -6,6 +6,7 @@
 
 package net.morima.majyan.presentation
 
+import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -23,15 +24,12 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.ShoppingCart
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
@@ -43,28 +41,62 @@ import androidx.wear.compose.material.Card
 import androidx.wear.compose.material.Icon
 import androidx.wear.compose.material.MaterialTheme
 import androidx.wear.compose.material.Text
-import androidx.wear.compose.material.TimeText
 import androidx.wear.tooling.preview.devices.WearDevices
-import net.morima.majyan.R
 import net.morima.majyan.presentation.theme.MajyanTheme
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
+import androidx.compose.runtime.mutableStateOf
 
-class MainActivity : ComponentActivity() {
+class MainActivity : ComponentActivity(), SensorEventListener {
+    private lateinit var sensorManager: SensorManager
+    private var heartRateSensor: Sensor? = null
+    private val heartRate = mutableStateOf("N/A") // センサーデータを保持
+
     override fun onCreate(savedInstanceState: Bundle?) {
+        if (checkSelfPermission(android.Manifest.permission.BODY_SENSORS) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(android.Manifest.permission.BODY_SENSORS), 100)
+        }
+
         installSplashScreen()
-
         super.onCreate(savedInstanceState)
-
         setTheme(android.R.style.Theme_DeviceDefault)
 
+        sensorManager = getSystemService(SENSOR_SERVICE) as SensorManager
+        heartRateSensor = sensorManager.getDefaultSensor(Sensor.TYPE_HEART_RATE)
+
         setContent {
-            WearApp()
+            WearApp(heartRate.value) // heartRateを渡す
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        heartRateSensor?.let {
+            sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        sensorManager.unregisterListener(this)
+    }
+
+    override fun onSensorChanged(event: SensorEvent?) {
+        if (event?.sensor?.type == Sensor.TYPE_HEART_RATE) {
+            heartRate.value = event.values.firstOrNull()?.toInt()?.toString() ?: "N/A"
+        }
+    }
+
+    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
+        // 必要であれば実装
     }
 }
 
-@Composable
-fun WearApp() {
 
+@Composable
+fun WearApp(heartRate: String) {
     val navController = rememberNavController()
 
     MajyanTheme {
@@ -74,12 +106,11 @@ fun WearApp() {
                 .background(MaterialTheme.colors.background),
             contentAlignment = Alignment.Center
         ) {
-            NavGraphWithSwipe(
-                navController = navController
-            )
+            NavGraphWithSwipe(navController = navController, heartRate = heartRate)
         }
     }
 }
+
 
 @Composable
 fun SelectionItem(
@@ -104,7 +135,7 @@ fun SelectionItem(
 }
 
 @Composable
-fun NavGraphWithSwipe(navController: NavHostController) {
+fun NavGraphWithSwipe(navController: NavHostController, heartRate: String) {
     NavHost(
         navController = navController,
         startDestination = "screen_a"
@@ -113,7 +144,7 @@ fun NavGraphWithSwipe(navController: NavHostController) {
             ScreenA(navController)
         }
         composable("screen_b") {
-            ScreenB(navController)
+            ScreenB(navController, heartRate)
         }
     }
 }
@@ -132,7 +163,7 @@ fun ScreenA(
     ) {
         SelectionItem(
             icon = Icons.Rounded.ShoppingCart,
-            title = "Screen B",
+            title = "東",
             onClick = {
                 navController.navigate("screen_b")
             }
@@ -140,7 +171,7 @@ fun ScreenA(
         Spacer(modifier = Modifier.width(16.dp))
         SelectionItem(
             icon = Icons.Rounded.ShoppingCart,
-            title = "Screen B",
+            title = "南",
             onClick = {
                 navController.navigate("screen_b")
             }
@@ -148,7 +179,7 @@ fun ScreenA(
         Spacer(modifier = Modifier.width(16.dp))
         SelectionItem(
             icon = Icons.Rounded.ShoppingCart,
-            title = "Screen B",
+            title = "西",
             onClick = {
                 navController.navigate("screen_b")
             }
@@ -156,15 +187,7 @@ fun ScreenA(
         Spacer(modifier = Modifier.width(16.dp))
         SelectionItem(
             icon = Icons.Rounded.ShoppingCart,
-            title = "Screen B",
-            onClick = {
-                navController.navigate("screen_b")
-            }
-        )
-        Spacer(modifier = Modifier.width(16.dp))
-        SelectionItem(
-            icon = Icons.Rounded.ShoppingCart,
-            title = "Screen B",
+            title = "北",
             onClick = {
                 navController.navigate("screen_b")
             }
@@ -175,21 +198,23 @@ fun ScreenA(
 
 @Composable
 fun ScreenB(
-    navController: NavHostController
-){
+    navController: NavHostController,
+    heartRate: String
+) {
     Column(
         modifier = Modifier
             .fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
-    ){
-        Text(text = "Screen B")
+    ) {
+        Text(text = "心拍数")
+        Text(text = " ♡ : $heartRate bpm") // 心拍数を表示
 
         Button(
             onClick = {
                 navController.popBackStack()
             }
-        ){
+        ) {
             Icon(
                 painter = rememberVectorPainter(
                     image = Icons.AutoMirrored.Rounded.ArrowBack
@@ -200,8 +225,9 @@ fun ScreenB(
     }
 }
 
+
 @Preview(device = WearDevices.SMALL_ROUND, showSystemUi = true)
 @Composable
 fun DefaultPreview() {
-    WearApp()
+    WearApp(heartRate = "78") // 仮の心拍数値を渡す
 }
