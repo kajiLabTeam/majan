@@ -1,9 +1,3 @@
-/* While this template provides a good starting point for using Wear Compose, you can always
- * take a look at https://github.com/android/wear-os-samples/tree/main/ComposeStarter and
- * https://github.com/android/wear-os-samples/tree/main/ComposeAdvanced to find the most up to date
- * changes to the libraries and their usages.
- */
-
 package net.morima.majyan.presentation
 
 import android.content.pm.PackageManager
@@ -32,6 +26,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -48,11 +43,15 @@ import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import androidx.compose.runtime.mutableStateOf
+import net.morima.majyan.data.database.HeartRate
 
 class MainActivity : ComponentActivity(), SensorEventListener {
     private lateinit var sensorManager: SensorManager
     private var heartRateSensor: Sensor? = null
     private val heartRate = mutableStateOf("N/A") // センサーデータを保持
+
+    // HeartRateViewModelを初期化
+    private lateinit var viewModel: HeartRateViewModel
 
     override fun onCreate(savedInstanceState: Bundle?) {
         if (checkSelfPermission(android.Manifest.permission.BODY_SENSORS) != PackageManager.PERMISSION_GRANTED) {
@@ -62,6 +61,9 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         installSplashScreen()
         super.onCreate(savedInstanceState)
         setTheme(android.R.style.Theme_DeviceDefault)
+
+        // ViewModelの初期化
+        viewModel = ViewModelProvider(this)[HeartRateViewModel::class.java]
 
         sensorManager = getSystemService(SENSOR_SERVICE) as SensorManager
         heartRateSensor = sensorManager.getDefaultSensor(Sensor.TYPE_HEART_RATE)
@@ -85,7 +87,18 @@ class MainActivity : ComponentActivity(), SensorEventListener {
 
     override fun onSensorChanged(event: SensorEvent?) {
         if (event?.sensor?.type == Sensor.TYPE_HEART_RATE) {
-            heartRate.value = event.values.firstOrNull()?.toInt()?.toString() ?: "N/A"
+            val heartRateValue = event.values.firstOrNull()?.toInt()
+            heartRateValue?.let {
+                heartRate.value = it.toString()
+
+                // 現在の時刻とともにデータベースに保存
+                viewModel.insertHeartRate(
+                    HeartRate(
+                        timestamp = System.currentTimeMillis(),
+                        value = it
+                    )
+                )
+            }
         }
     }
 
