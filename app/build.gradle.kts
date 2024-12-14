@@ -67,6 +67,7 @@ dependencies {
     debugImplementation(libs.ui.test.manifest)
     implementation (libs.material.icons.extended)
     implementation (libs.foundation)
+    implementation (libs.mpandroidchart)
 
     // Room Database
     implementation (libs.room.runtime)
