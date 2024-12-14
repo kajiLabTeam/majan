@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
+    id("kotlin-kapt")
 }
 
 android {
@@ -65,5 +66,10 @@ dependencies {
     debugImplementation(libs.ui.tooling)
     debugImplementation(libs.ui.test.manifest)
     implementation (libs.material.icons.extended)
-    implementation ("androidx.compose.foundation:foundation:1.7.5")
+    implementation (libs.foundation)
+
+    // Room Database
+    implementation (libs.room.runtime)
+    kapt (libs.room.compiler)
 }
+
